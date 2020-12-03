@@ -1,0 +1,2 @@
+# edgeRPBot
+idk chief
