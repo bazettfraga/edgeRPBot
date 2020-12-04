@@ -10,7 +10,11 @@ a = "main"
 
 def displayCharacter(userid, charid):
     with open('characters.yaml') as f:
-        characters = yaml.load(f, Loader=yaml.FullLoader) #FUCK YAML DOGSHIT
+        characters = yaml.load(f, Loader=yaml.FullLoader)
+        #if userid not in characters.keys():
+            #return("You do not have any characters! Please make a character.")
+        #elif charid not in characters[userid].keys():
+           #return("This character does not exist. Are you sure you didn't make a mistake?")
         error = shittyErrorHandling(userid, charid, characters)
         if error is not None:
             return error
@@ -50,8 +54,8 @@ def edit(key, userid, charid, value):
     if error is not None:
         return error
     characters[userid][charid][key] = value
-    with open('characters.yaml', 'w+'): #FUCK THIS FUNCTION
-        f.write(yaml.dump(characters, sort_keys=False)) #FUCK YAML
+    with open('characters.yaml', 'w+'):
+        f.write(yaml.dump(characters, sort_keys=False))
         return value
         
 @client.command()
