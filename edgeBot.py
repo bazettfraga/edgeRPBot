@@ -3,12 +3,15 @@ import sqlite3 #fuck yaml.
 import discord
 from discord.ext import commands
 import configparser
+import json
+import ast
 
 config = configparser.ConfigParser()
 client = commands.Bot(command_prefix='=')
-conn = sqlite3.connect('characters')
+conn = sqlite3.connect('characters.sqlite')
 c = conn.cursor()
 stats = { 0:'S', 1:'A', 2:'B', 3:'C', 4:'D', 5:'E', 6:'F'}
+invstats = {v: k for k, v in stats.items()}
 uid = 94902686654136320
 
 def loadCharacter(userid, charid):
@@ -24,9 +27,13 @@ def displayCharacter(uid, cid):
     if not type(charInfo) is tuple:
         return(charInfo)
     base = ("[{}]\n-- {}\nHEALTH: {}\nMC: {}\nStrength - {}\nDurability - {}\nSpeed - {}\nArcana - {}".format(charInfo[2], charInfo[3], charInfo[4], charInfo[5], stats[charInfo[6]], stats[charInfo[7]], stats[charInfo[8]], stats[charInfo[9]])) 
-    if charInfo[10] is not None:
+    headache = ast.literal_eval(charInfo[10])
+    #print(headache)
+    #print(type(headache))
+    if len(headache): #FIXME remove prints soon
+        #print("???")
         base = base + "\nInventory:"
-        for index, item in enumerate(characters[userid][charid]['inventory']):
+        for index, item in enumerate(headache):
             base = base + "\n\t{}: {}".format(index+1, item)
     return(base)
 
@@ -52,35 +59,63 @@ async def edit_hp(ctx, val:int, cid = None):
 @client.command()
 async def edit_mc(ctx, val:int, cid = None):
     edit("magiccircuit", ctx.author.id, cid, val)
-    await ctx.send("**Magic Circuits: [{}]**".format(val))
+    await ctx.send("Magic Circuits: **[{}]**".format(val))
 
 @client.command()
 async def edit_str(ctx, val, cid = None):
-    if val != 'S' or 'A' or 'B' or 'C' or 'D' or 'E' or 'F':
+    if val not in ['S','A','B','C','D','E','F']:
         await ctx.send("Please input a rank from S to F.")
-    edit("strength", ctx.author.id, cid, val)
-    await ctx.send("Strength: **{}**".format(val))
+    else:
+        edit("strength", ctx.author.id, cid, invstats[val])
+        await ctx.send("Strength: **{}**".format(val))
 
 @client.command()
 async def edit_dur(ctx, val, cid = None):
-    if val != 'S' or 'A' or 'B' or 'C' or 'D' or 'E' or 'F':
+    if val not in ['S','A','B','C','D','E','F']:
         await ctx.send("Please input a rank from S to F.")
-    edit("durability", ctx.author.id, cid, val)
-    await ctx.send("Durability: **{}**".format(val))
+    else:
+        edit("durability", ctx.author.id, cid, invstats[val])
+        await ctx.send("Durability: **{}**".format(val))
 
 @client.command()
 async def edit_spd(ctx, val, cid = None):
-    if val != 'S' or 'A' or 'B' or 'C' or 'D' or 'E' or 'F':
+    if val not in ['S','A','B','C','D','E','F']:
         await ctx.send("Please input a rank from S to F.")
-    edit("speed", ctx.author.id, cid, val)
-    await ctx.send("Speed: **{}**".format(val))
+    else:
+        edit("speed", ctx.author.id, cid, invstats[val])
+        await ctx.send("Speed: **{}**".format(val))
 
 @client.command()
 async def edit_arc(ctx, val, cid = None):
-    if val != 'S' or 'A' or 'B' or 'C' or 'D' or 'E' or 'F':
+    if val not in ['S','A','B','C','D','E','F']:
         await ctx.send("Please input a rank from S to F.")
-    edit("arcana", ctx.author.id, cid, val)
-    await ctx.send("Arcana: **{}**".format(val))
+    else:
+        edit("arcana", ctx.author.id, cid, invstats[val])
+        await ctx.send("Arcana: **{}**".format(val))
+
+@client.command()
+async def add_item(ctx, item, cid=None):
+    char = loadCharacter(ctx.author.id, cid)
+    inv = ast.literal_eval(char[10])
+    inv.append(item)
+    c.execute('update characters set items = ? where uid = ? and cid is ?', (str(inv), ctx.author.id, cid)) 
+    conn.commit()
+    
+@client.command()
+async def remove_item(ctx, item:int, cid=None):
+    char = loadCharacter(ctx.author.id, cid)
+    inv = ast.literal_eval(char[10])
+    del inv[item-1]
+    c.execute('update characters set items = ? where uid = ? and cid is ?', (str(inv), ctx.author.id, cid)) 
+    conn.commit()
+
+@client.command()
+async def edit_item(ctx, item:int, value, cid=None):
+    char = loadCharacter(ctx.author.id, cid)
+    inv = ast.literal_eval(char[10])
+    inv[item-1] = value
+    c.execute('update characters set items = ? where uid = ? and cid is ?', (str(inv), ctx.author.id, cid)) 
+    conn.commit()
 
 @client.command()
 async def set_up(ctx, cid = None):
@@ -99,12 +134,15 @@ async def set_up(ctx, cid = None):
 @client.command()
 async def show(ctx, cid = None):
     #print(displayCharacter(ctx.author.id, cid))
+    print("??")
     await ctx.send("** {} **".format(displayCharacter(ctx.author.id,cid)))
+    print("???????")
 
 @client.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.BadArgument):
         await ctx.send("Please input a number...")
+    print(error)
 
 #print(displayCharacter(uid,None)) #debug
 try:
