@@ -22,6 +22,21 @@ def loadCharacter(userid, charid):
             val = "You do not have any characters <@{}>. Please make a character...".format(uid)
     return val #FIXME: THIS IS BAD. ALL OF THIS IS BADNESS. MAKE IT RETURN NULL AND IMPLEMENT *ACTUAL* FUCKING ERROR HANDLING!!!!!!
 
+async def updateMsg(userid, charid):
+    ids = c.execute("SELECT channelId, messageId from messages where uid = ? and cid is ?", (userid,charid)).fetchone()
+    channelId = ids[0]
+    messageId = ids[1]
+    text = displayCharacter(userid,charid)
+    if messageId is not None:
+        channel = client.get_channel(channelId) # the message's channel
+        msg = await channel.fetch_message(messageId)
+        await msg.edit(content = "**{}**".format(text))
+    return messageId
+
+@client.command()
+async def test(ctx, uid = None):
+    updateMsg(ctx.author.id,uid)
+
 def displayCharacter(uid, cid):
     charInfo = loadCharacter(uid, cid)
     if not type(charInfo) is tuple:
@@ -50,17 +65,20 @@ def edit(key, userid, charid, value):
 async def edit_name(ctx, val, cid = None):
     edit("name", ctx.author.id, cid, val)
     await ctx.send("**[{}]**".format(val))
+    await updateMsg(ctx.author.id,cid)
 
 @client.command()
 async def edit_hp(ctx, val:int, cid = None):
     edit("health", ctx.author.id, cid, val)
     await ctx.send("Health: **[{}]**".format(val))
+    await updateMsg(ctx.author.id,cid)
 
 @client.command()
 async def edit_mc(ctx, val:int, cid = None):
     edit("magiccircuit", ctx.author.id, cid, val)
     await ctx.send("Magic Circuits: **[{}]**".format(val))
-
+    await updateMsg(ctx.author.id,cid)
+    
 @client.command()
 async def edit_str(ctx, val, cid = None):
     if val not in ['S','A','B','C','D','E','F']:
@@ -68,6 +86,7 @@ async def edit_str(ctx, val, cid = None):
     else:
         edit("strength", ctx.author.id, cid, invstats[val])
         await ctx.send("Strength: **{}**".format(val))
+        await updateMsg(ctx.author.id,cid)
 
 @client.command()
 async def edit_dur(ctx, val, cid = None):
@@ -76,6 +95,7 @@ async def edit_dur(ctx, val, cid = None):
     else:
         edit("durability", ctx.author.id, cid, invstats[val])
         await ctx.send("Durability: **{}**".format(val))
+        await updateMsg(ctx.author.id,cid)
 
 @client.command()
 async def edit_spd(ctx, val, cid = None):
@@ -84,14 +104,16 @@ async def edit_spd(ctx, val, cid = None):
     else:
         edit("speed", ctx.author.id, cid, invstats[val])
         await ctx.send("Speed: **{}**".format(val))
+        await updateMsg(ctx.author.id,cid)
 
 @client.command()
 async def edit_arc(ctx, val, cid = None):
     if val not in ['S','A','B','C','D','E','F']:
         await ctx.send("Please input a rank from S to F.")
     else:
-        edit("arcana", ctx.author.id, cid, invstats[val])
+        edit("arcane", ctx.author.id, cid, invstats[val])
         await ctx.send("Arcana: **{}**".format(val))
+        await updateMsg(ctx.author.id,cid)
 
 @client.command()
 async def add_item(ctx, item, cid=None):
@@ -100,14 +122,16 @@ async def add_item(ctx, item, cid=None):
     inv.append(item)
     c.execute('update characters set items = ? where uid = ? and cid is ?', (str(inv), ctx.author.id, cid)) 
     conn.commit()
+    await updateMsg(ctx.author.id,cid)
     
 @client.command()
 async def remove_item(ctx, item:int, cid=None):
     char = loadCharacter(ctx.author.id, cid)
     inv = ast.literal_eval(char[10])
-    del inv[item-1]
+    del inv[item]
     c.execute('update characters set items = ? where uid = ? and cid is ?', (str(inv), ctx.author.id, cid)) 
     conn.commit()
+    await updateMsg(ctx.author.id,cid)
 
 @client.command()
 async def edit_item(ctx, item:int, value, cid=None):
@@ -116,6 +140,7 @@ async def edit_item(ctx, item:int, value, cid=None):
     inv[item-1] = value
     c.execute('update characters set items = ? where uid = ? and cid is ?', (str(inv), ctx.author.id, cid)) 
     conn.commit()
+    await updateMsg(ctx.author.id,cid)
 
 @client.command()
 async def set_up(ctx, cid = None):
@@ -135,9 +160,14 @@ async def set_up(ctx, cid = None):
 async def show(ctx, cid = None):
     #print(displayCharacter(ctx.author.id, cid))
     print("??")
-    await ctx.send("** {} **".format(displayCharacter(ctx.author.id,cid)))
+    message = await ctx.send("** {} **".format(displayCharacter(ctx.author.id,cid)))
     print("???????")
-
+    if await updateMsg(ctx.author.id, cid) is None: 
+        c.execute('insert into messages(messageId,uid,cid) values (?,?,?)', (message.id, ctx.author.id, cid))
+        conn.commit()
+    else:
+        c.execute('update messages set messageId = ? where uid = ? and cid is ?', (message.id, ctx.author.id, cid))
+        
 @client.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.BadArgument):
